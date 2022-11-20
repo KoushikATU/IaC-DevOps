@@ -1,8 +1,23 @@
 # This CloudFormation template is for Assignment 1
-
 AWSTemplateFormatVersion: 2010-09-09
+Description: This template is the root stack for the project which creates all the necessary networks and calls all the nexessary nested stacks.
 # ============= Parameters =============
 Parameters:
+  VPCCIDR:
+    Type: String
+    Default: "172.30.0.0/16"
+  PublicSubnet1CIDR:
+    Type: String
+    Default: "172.30.1.0/24"
+  PublicSubnet2CIDR:
+    Type: String
+    Default: "172.30.2.0/24"
+  PrivateSubnet1CIDR:
+    Type: String
+    Default: "172.30.3.0/24"
+  PrivateSubnet2CIDR:
+    Type: String
+    Default: "172.30.4.0/24"
   DBUsername:
     Description: "DB Username:"
     Type: String
@@ -10,13 +25,19 @@ Parameters:
   DBPassword:
     Description: "DB Password:"
     Type: String
+    NoEcho : true
     AllowedPattern : ".+"
+  SSHKey:
+    Description: "SSH Key Name:"
+    Type: String
+    AllowedPattern : ".+"
+
 # ============= Resources =============
 Resources:
   CFVPC:
     Type: AWS::EC2::VPC
     Properties:
-      CidrBlock: 172.30.0.0/16
+      CidrBlock: !Ref VPCCIDR
       EnableDnsSupport: true
       EnableDnsHostnames: true
       Tags:
@@ -42,7 +63,7 @@ Resources:
     Properties:
       VpcId: !Ref CFVPC
       AvailabilityZone: !Select [ 0, !GetAZs '' ]
-      CidrBlock: 172.30.1.0/24
+      CidrBlock: !Ref PublicSubnet1CIDR
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
@@ -53,7 +74,7 @@ Resources:
     Properties:
       VpcId: !Ref CFVPC
       AvailabilityZone: !Select [ 1, !GetAZs  '' ]
-      CidrBlock: 172.30.2.0/24
+      CidrBlock: !Ref PublicSubnet2CIDR
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
@@ -64,7 +85,7 @@ Resources:
     Properties:
       VpcId: !Ref CFVPC
       AvailabilityZone: !Select [ 0, !GetAZs  '' ]
-      CidrBlock: 172.30.3.0/24
+      CidrBlock: !Ref PrivateSubnet1CIDR
       MapPublicIpOnLaunch: false
       Tags:
         - Key: Name
@@ -75,7 +96,7 @@ Resources:
     Properties:
       VpcId: !Ref CFVPC
       AvailabilityZone: !Select [ 1, !GetAZs  '' ]
-      CidrBlock: 172.30.4.0/24
+      CidrBlock: !Ref PrivateSubnet2CIDR
       MapPublicIpOnLaunch: false
       Tags:
         - Key: Name
@@ -87,7 +108,7 @@ Resources:
     Type: AWS::EC2::EIP
     DependsOn: CFVPCGatewayAttachment
     Properties:
-      Domain: CFVPC
+      Domain: vpc
 
   CFNatGateway:
     Type: AWS::EC2::NatGateway
@@ -143,127 +164,54 @@ Resources:
       DestinationCidrBlock: 0.0.0.0/0
       NatGatewayId: !Ref CFNatGateway
 
+
   CFSubnetRouteTableAssociation3:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       RouteTableId: !Ref CFRouteTable2
       SubnetId: !Ref CFPrivateSubnet1
 
-  CFRouteTable3:
-    Type: AWS::EC2::RouteTable
-    Properties:
-      VpcId: !Ref CFVPC
-      Tags:
-        - Key: Name
-          Value: !Join ['', [!Ref "AWS::StackName", "-RouteTable3" ]]
-
   CFSubnetRouteTableAssociation4:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      RouteTableId: !Ref CFRouteTable3
+      RouteTableId: !Ref CFRouteTable2
       SubnetId: !Ref CFPrivateSubnet2
 
 # ----------- Security Groups -----------
 
-  DenyInboundSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
+  CFSecurityGroupNestedStack:
+    Type: AWS::CloudFormation::Stack
     Properties:
-      GroupName: "deny-inbound"
-      GroupDescription: "Deny all inbound traffic"
-      VpcId: !Ref CFVPC
-
-  WebSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupName: "allow-web"
-      GroupDescription: Enable web access externally
-      VpcId: !Ref CFVPC
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          CidrIp: 0.0.0.0/0
-        - IpProtocol: tcp
-          FromPort: 443
-          ToPort: 443
-          CidrIp: 0.0.0.0/0
-      Tags:
-        - Key: Name
-          Value: !Join ['', [!Ref "AWS::StackName", "-WebSecurityGroup" ]]
-
-  SSHSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupName: Allow-SSH
-      GroupDescription: Enable SSH access
-      VpcId: !Ref CFVPC
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 22
-          ToPort: 22
-          CidrIp: 172.30.0.0/16
-      Tags:
-        - Key: Name
-          Value: !Join ['', [!Ref "AWS::StackName", "-SSHSecurityGroup" ]]
-
-  DBSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupName: Allow-DB
-      GroupDescription: Enable DB access
-      VpcId: !Ref CFVPC
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 5432
-          ToPort: 5432
-          CidrIp: 172.30.0.0/16
-      Tags:
-        - Key: Name
-          Value: !Join ['', [!Ref "AWS::StackName", "-DBSecurityGroup" ]]
+      TemplateURL: https://l00163331.s3.amazonaws.com/SecurityGroupStack.yaml
+      Parameters:
+        VPCID: !Ref CFVPC
 
 # ----------- EC2 (Web Server) -----------
 
-  CFEC2:
-    Type: AWS::EC2::Instance
+  CFEC2NestedStack:
+    Type: AWS::CloudFormation::Stack
+    # DependsOn is obsolete in this case because it is already enforced by a "Fn:GetAtt" but just keeping it here for my understanding that this code does not run until the previous nested stack is run successfully
+    ## DependsOn: CFSecurityGroupNestedStack
     Properties:
-      ImageId: ami-08c40ec9ead489470
-      InstanceType: t2.micro
-      SubnetId: !Ref CFPublicSubnet1
-      SecurityGroupIds:
-        - !GetAtt "WebSecurityGroup.GroupId"
-        - !GetAtt "SSHSecurityGroup.GroupId"
-      Tags:
-        - Key: Name
-          Value: !Join ['', [!Ref "AWS::StackName", "-EC2" ]]
+      TemplateURL: https://l00163331.s3.amazonaws.com/EC2Stack.yaml
+      Parameters:
+        SSHKey: !Ref SSHKey
+        CFPublicSubnet1ID: !Ref CFPublicSubnet1
+        WebSecurityGroupID: !GetAtt CFSecurityGroupNestedStack.Outputs.WebSecurityGroupID
+        SSHSecurityGroupID: !GetAtt CFSecurityGroupNestedStack.Outputs.SSHSecurityGroupID
 
 # ----------- Database -----------
 
-  CFDBSubnetGroup:
-    Type: AWS::RDS::DBSubnetGroup
+  CFDBNestedStack:
+    Type: AWS::CloudFormation::Stack
+    # DependsOn is obsolete in this case because it is already enforced by a "Fn:GetAtt" but just keeping it here for my understanding that this code does not run until the previous nested stack is run successfully
+    ## DependsOn: CFSecurityGroupNestedStack
     Properties:
-      DBSubnetGroupName: "DatabaseSubnetGroup"
-      DBSubnetGroupDescription: "Subnet Group for Database"
-      SubnetIds:
-        - !Ref CFPublicSubnet1
-        - !Ref CFPublicSubnet2
-        - !Ref CFPrivateSubnet1
-        - !Ref CFPrivateSubnet2
-      Tags:
-        - Key: Name
-          Value: !Join ['', [!Ref "AWS::StackName", "-DBSubnetGroup" ]]
-
-  CFDBInstance:
-    Type: AWS::RDS::DBInstance
-    Properties:
-      DBSubnetGroupName: !Ref CFDBSubnetGroup
-      VPCSecurityGroups:
-        - !GetAtt "DBSecurityGroup.GroupId"
-        - !GetAtt "SSHSecurityGroup.GroupId"
-      DBInstanceClass: db.t2.micro
-      AllocatedStorage: "5"
-      Engine: postgres
-      MasterUsername: !Ref DBUsername
-      MasterUserPassword: !Ref DBPassword
-      Tags:
-        - Key: Name
-          Value: my-database
+      TemplateURL: https://l00163331.s3.amazonaws.com/DBStack.yaml
+      Parameters:
+        DBUsername: !Ref DBUsername
+        DBPassword: !Ref DBPassword
+        CFPrivateSubnet1ID: !Ref CFPrivateSubnet1
+        CFPrivateSubnet2ID: !Ref CFPrivateSubnet2
+        SSHSecurityGroupID: !GetAtt CFSecurityGroupNestedStack.Outputs.SSHSecurityGroupID
+        DBSecurityGroupID: !GetAtt CFSecurityGroupNestedStack.Outputs.DBSecurityGroupID

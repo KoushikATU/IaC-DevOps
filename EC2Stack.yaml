@@ -1,0 +1,34 @@
+# This CloudFormation template is for Assignment 1
+AWSTemplateFormatVersion: 2010-09-09
+Description: This template is used to create an EC2 Instance and map it to one of the Public Subnet. The Security Groups are also assigned to the subnet
+# ----------- EC2 (Web Server) -----------
+# ============= Parameters =============
+Parameters:
+  CFPublicSubnet1ID:
+    Type: AWS::EC2::Subnet::Id
+  WebSecurityGroupID:
+    Type: AWS::EC2::SecurityGroup::Id
+  SSHSecurityGroupID:
+    Type: AWS::EC2::SecurityGroup::Id
+  SSHKey:
+    Type: String
+# ============= Resources =============
+Resources:
+  CFEC2:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-08c40ec9ead489470
+      KeyName: !Ref SSHKey
+      InstanceType: t2.micro
+      SubnetId: !Ref CFPublicSubnet1ID
+      SourceDestCheck: false
+      SecurityGroupIds:
+        - !Ref WebSecurityGroupID
+        - !Ref SSHSecurityGroupID
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref "AWS::StackName", "-EC2" ]]
+      UserData:
+        Fn::Base64: |
+          #!/bin/bash
+          sudo apt update && sudo apt install -y nginx

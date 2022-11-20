@@ -1,29 +1,33 @@
 # This CloudFormation template is for Assignment 1
-
 AWSTemplateFormatVersion: 2010-09-09
+Description: This template is used to create and configure the Database Instance and map it to respective subnets.. The security groups are also assigned to the Database instance
+# ----------- Database -----------
 # ============= Parameters =============
 Parameters:
+  CFPrivateSubnet1ID:
+    Type: AWS::EC2::Subnet::Id
+  CFPrivateSubnet2ID:
+    Type: AWS::EC2::Subnet::Id
+  DBSecurityGroupID:
+    Type: AWS::EC2::SecurityGroup::Id
+  SSHSecurityGroupID:
+    Type: AWS::EC2::SecurityGroup::Id
   DBUsername:
-    Description: "DB Username:"
-    Type: String
-    AllowedPattern : ".+"
+    Type: "String"
   DBPassword:
-    Description: "DB Password:"
-    Type: String
-    AllowedPattern : ".+"
+    Type: "String"
+    NoEcho : true
 
-# ----------- Database -----------
-
+# ============= Resources =============
+Resources:
   CFDBSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
     Properties:
       DBSubnetGroupName: "DatabaseSubnetGroup"
       DBSubnetGroupDescription: "Subnet Group for Database"
       SubnetIds:
-        - !Ref CFPublicSubnet1
-        - !Ref CFPublicSubnet2
-        - !Ref CFPrivateSubnet1
-        - !Ref CFPrivateSubnet2
+        - !Ref CFPrivateSubnet1ID
+        - !Ref CFPrivateSubnet2ID
       Tags:
         - Key: Name
           Value: !Join ['', [!Ref "AWS::StackName", "-DBSubnetGroup" ]]
@@ -33,9 +37,9 @@ Parameters:
     Properties:
       DBSubnetGroupName: !Ref CFDBSubnetGroup
       VPCSecurityGroups:
-        - !GetAtt "DBSecurityGroup.GroupId"
-        - !GetAtt "SSHSecurityGroup.GroupId"
-      DBInstanceClass: db.t2.micro
+        - !Ref DBSecurityGroupID
+        - !Ref SSHSecurityGroupID
+      DBInstanceClass: db.t3.micro
       AllocatedStorage: "5"
       Engine: postgres
       MasterUsername: !Ref DBUsername
