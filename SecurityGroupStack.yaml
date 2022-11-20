@@ -1,0 +1,61 @@
+# This CloudFormation template is for Assignment 1
+
+AWSTemplateFormatVersion: 2010-09-09
+
+# ----------- Security Groups -----------
+
+  DenyInboundSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: "deny-inbound"
+      GroupDescription: "Deny all inbound traffic"
+      VpcId: !Ref CFVPC
+
+  WebSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: "allow-web"
+      GroupDescription: Enable web access externally
+      VpcId: !Ref CFVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref "AWS::StackName", "-WebSecurityGroup" ]]
+
+  SSHSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: Allow-SSH
+      GroupDescription: Enable SSH access
+      VpcId: !Ref CFVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 172.30.0.0/16
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref "AWS::StackName", "-SSHSecurityGroup" ]]
+
+  DBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: Allow-DB
+      GroupDescription: Enable DB access
+      VpcId: !Ref CFVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: 172.30.0.0/16
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref "AWS::StackName", "-DBSecurityGroup" ]]

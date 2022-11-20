@@ -1,0 +1,45 @@
+# This CloudFormation template is for Assignment 1
+
+AWSTemplateFormatVersion: 2010-09-09
+# ============= Parameters =============
+Parameters:
+  DBUsername:
+    Description: "DB Username:"
+    Type: String
+    AllowedPattern : ".+"
+  DBPassword:
+    Description: "DB Password:"
+    Type: String
+    AllowedPattern : ".+"
+
+# ----------- Database -----------
+
+  CFDBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupName: "DatabaseSubnetGroup"
+      DBSubnetGroupDescription: "Subnet Group for Database"
+      SubnetIds:
+        - !Ref CFPublicSubnet1
+        - !Ref CFPublicSubnet2
+        - !Ref CFPrivateSubnet1
+        - !Ref CFPrivateSubnet2
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref "AWS::StackName", "-DBSubnetGroup" ]]
+
+  CFDBInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBSubnetGroupName: !Ref CFDBSubnetGroup
+      VPCSecurityGroups:
+        - !GetAtt "DBSecurityGroup.GroupId"
+        - !GetAtt "SSHSecurityGroup.GroupId"
+      DBInstanceClass: db.t2.micro
+      AllocatedStorage: "5"
+      Engine: postgres
+      MasterUsername: !Ref DBUsername
+      MasterUserPassword: !Ref DBPassword
+      Tags:
+        - Key: Name
+          Value: my-database

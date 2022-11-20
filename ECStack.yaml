@@ -1,0 +1,19 @@
+# This CloudFormation template is for Assignment 1
+
+AWSTemplateFormatVersion: 2010-09-09
+
+
+# ----------- EC2 (Web Server) -----------
+
+  CFEC2:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-08c40ec9ead489470
+      InstanceType: t2.micro
+      SubnetId: !Ref CFPublicSubnet1
+      SecurityGroupIds:
+        - !GetAtt "WebSecurityGroup.GroupId"
+        - !GetAtt "SSHSecurityGroup.GroupId"
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref "AWS::StackName", "-EC2" ]]
